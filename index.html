@@ -2785,6 +2785,28 @@ setInterval(async function () {
     }
   } catch (e) {}
 }, 60000);
+(function () {
+  var s = document.createElement('style');
+  s.textContent = '.fb-lightbox-content video{pointer-events:auto !important;}';
+  document.head.appendChild(s);
+
+  var lb = document.getElementById('lightboxBody');
+  if (lb) {
+    lb.addEventListener('touchstart', function (e) {
+      window._noSwipe = false;
+      var t = e.target;
+      if (t && t.tagName === 'VIDEO' && e.touches && e.touches[0]) {
+        var r = t.getBoundingClientRect();
+        if (e.touches[0].clientY > r.bottom - 80) window._noSwipe = true;
+      }
+    }, true);
+    var _hs = handleSwipeGesture;
+    handleSwipeGesture = function () {
+      if (window._noSwipe) { window._noSwipe = false; return; }
+      _hs();
+    };
+  }
+})();
 const _saveOriginal = saveSupabaseData;
 saveSupabaseData = async function (d) {
   const ok = await _saveOriginal(d);
