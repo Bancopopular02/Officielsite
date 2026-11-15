@@ -623,6 +623,23 @@ html.rk-locked, html.rk-locked body { overflow: hidden !important; height: 100%;
   } catch (e) {}
 })();
 </script>
+<script>
+(function () {
+  try {
+    var f = JSON.parse(localStorage.getItem('rock_brand_fast') || 'null');
+    if (!f) return;
+    var m = document.getElementById('brandMarkContainer');
+    var n = document.getElementById('brandNameContainer');
+    var t = document.getElementById('brandTagContainer');
+    if (f.logo && m) {
+      m.innerHTML = '<img src="' + String(f.logo).replace(/"/g, '&quot;') +
+        '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="Logo">';
+    }
+    if (f.name && n) n.innerHTML = f.name;
+    if (f.tag && t) t.textContent = f.tag;
+  } catch (e) {}
+})();
+</script>
 <div class="mobile-drawer-overlay" id="drawerOverlay"></div>
 <aside class="mobile-drawer" id="mobileDrawer">
   <div class="drawer-header">
@@ -2718,7 +2735,19 @@ fetchSupabaseData = async function () {
   if (window._rmBoot) setTimeout(window._rmBoot, 300);
   return r || supabaseCache || {};
 };
-
+const _ahbOriginal = applyHeaderBranding;
+applyHeaderBranding = function () {
+  _ahbOriginal();
+  try {
+    if (supabaseCache && supabaseCache.rock_brand_logo !== undefined) {
+      localStorage.setItem('rock_brand_fast', JSON.stringify({
+        logo: supabaseCache.rock_brand_logo,
+        name: supabaseCache.rock_brand_name,
+        tag: supabaseCache.rock_brand_tag
+      }));
+    }
+  } catch (e) {}
+};
 const _saveOriginal = saveSupabaseData;
 saveSupabaseData = async function (d) {
   const ok = await _saveOriginal(d);
