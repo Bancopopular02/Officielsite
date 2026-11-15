@@ -525,6 +525,39 @@ a{color:inherit;text-decoration:none}
   .footer-main{grid-template-columns:1fr;gap:24px}
 }
 </style>
+<style>
+html.rk-locked, html.rk-locked body { overflow: hidden !important; height: 100%; }
+#rkWall {
+  position: fixed; inset: 0; z-index: 9000;
+  background: transparent;
+  display: none; align-items: center; justify-content: center; padding: 16px;
+  touch-action: none; overscroll-behavior: none;
+}
+#rkWall.show { display: flex; }
+#rkWallCard {
+  background: #fff; width: 100%; max-width: 360px; border-radius: 20px; padding: 26px 22px;
+  text-align: center; border: 1px solid #e2e8f5;
+  box-shadow: 0 20px 50px rgba(7, 41, 105, .28);
+  animation: scaleUpModal .25s cubic-bezier(.175, .885, .32, 1.275) forwards;
+}
+#rkWallIcon {
+  width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 50%; font-size: 26px;
+  display: grid; place-items: center; user-select: none;
+  background: linear-gradient(135deg, #eff4ff, #d9e6ff);
+}
+#rkWallCard h3 { margin: 0 0 8px; font-size: 17px; font-weight: 850; color: var(--navy); }
+#rkWallCard p { margin: 0 0 18px; font-size: 13.5px; line-height: 1.5; color: #4a5568; }
+#rkGoogleBtn { display: flex; justify-content: center; min-height: 44px; }
+#rkWallErr { margin-top: 12px; font-size: 12px; color: #dc2626; display: none; }
+.rk-user-chip {
+  position: fixed; right: 12px; bottom: 12px; z-index: 55; display: none; align-items: center; gap: 8px;
+  background: #fff; border: 1px solid #e2e8f5; border-radius: 22px; padding: 4px 12px 4px 4px;
+  box-shadow: 0 6px 18px rgba(7, 41, 105, .15); font-size: 12px; font-weight: 700; color: #26365f;
+}
+.rk-user-chip.show { display: flex; }
+.rk-user-chip img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.rk-user-chip button { background: none; border: 0; color: #dc2626; font-size: 11px; font-weight: 700; cursor: pointer; padding: 0 0 0 4px; }
+</style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 </head>
@@ -854,6 +887,16 @@ a{color:inherit;text-decoration:none}
 </div>
 <button id="installBtn" style="display:none;position:fixed;right:16px;bottom:90px;z-index:60;background:#075bff;color:#fff;border:0;border-radius:24px;padding:12px 18px;font-weight:750;box-shadow:0 8px 20px rgba(7,91,255,.35)">📲 Ajouter à l'écran d'accueil</button>
 <div class="toast" id="toast"></div>
+<div id="rkWall" aria-modal="true" role="dialog">
+  <div id="rkWallCard">
+    <div id="rkWallIcon">🔐</div>
+    <h3>Connexion requise</h3>
+    <p>Connecte-toi d'abord avec ton compte Google pour continuer : consulter, commenter, aimer ou soumettre un dossier.</p>
+    <div id="rkGoogleBtn"></div>
+    <div id="rkWallErr"></div>
+  </div>
+</div>
+<div class="rk-user-chip" id="rkUserChip"><img id="rkChipImg" alt=""><span id="rkChipName"></span><button type="button" id="rkLogout">Déconnexion</button></div>
 
 <footer class="site-footer" id="contact">
   <div class="footer-main">
@@ -2964,6 +3007,203 @@ img[src*="gstatic.com/images/branding"], img[src*="translate.google"] { display:
   }
   setInterval(tick, 1000);
   tick();
+})();
+</script>
+<script>
+(function () {
+  // >>> COLLE ICI TON CLIENT ID GOOGLE <<<
+  var GOOGLE_CLIENT_ID = '648109430866-511scjl7ib4bjg703uu7341gn7n43htj.apps.googleusercontent.com';
+
+  var USER_KEY = 'rock_google_user';
+  var SESSION_DAYS = 30;
+  var wall = document.getElementById('rkWall');
+  var html = document.documentElement;
+  var currentUser = null;
+  var configured = GOOGLE_CLIENT_ID.indexOf('GOOGLE_CLIENT_ID') !== 0;
+
+  function initialsOf(name, email) {
+    var src = (name || '').trim();
+    var letters = '';
+    if (src) {
+      var parts = src.split(/\s+/).filter(Boolean);
+      letters = parts.length > 1 ? parts[0][0] + parts[1][0] : parts[0].slice(0, 2);
+    } else {
+      letters = (email || '?').split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 2) || '?';
+    }
+    return letters.toUpperCase();
+  }
+  var COLORS = ['#075bff', '#16a34a', '#d97706', '#7c3aed', '#db2777', '#0d9488', '#dc2626', '#0891b2'];
+  function initialsAvatar(name, email) {
+    var t = initialsOf(name, email);
+    var seed = (email || name || t).charCodeAt(0) || 0;
+    var bg = COLORS[seed % COLORS.length];
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="' + bg +
+      '"/><text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Arial,sans-serif" font-size="48" font-weight="700" fill="#fff">' +
+      t + '</text></svg>';
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
+  window._rk = {
+    getUser: function () { return currentUser; },
+    isConfigured: function () { return configured; },
+    lock: function () { lock(); },
+    initialsOf: initialsOf,
+    initialsAvatar: initialsAvatar
+  };
+
+  function decodeJwt(token) {
+    var b = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(decodeURIComponent(escape(atob(b))));
+  }
+  function loadSaved() {
+    try {
+      var u = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+      if (u && u.sub && u.until > Date.now()) return u;
+    } catch (e) {}
+    return null;
+  }
+  function save(u) { try { localStorage.setItem(USER_KEY, JSON.stringify(u)); } catch (e) {} }
+
+  function lock() {
+    wall.classList.add('show');
+    html.classList.add('rk-locked');
+    document.getElementById('rkUserChip').classList.remove('show');
+  }
+  function unlock() {
+    wall.classList.remove('show');
+    html.classList.remove('rk-locked');
+  }
+  ['touchmove', 'wheel'].forEach(function (ev) {
+    wall.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
+  });
+
+  function showUser(u) {
+    currentUser = u;
+    var chip = document.getElementById('rkUserChip');
+    document.getElementById('rkChipImg').src = u.picture || initialsAvatar(u.name, u.email);
+    document.getElementById('rkChipName').textContent = u.name || initialsOf(u.name, u.email);
+    chip.classList.add('show');
+    unlock();
+  }
+
+  function onGoogle(resp) {
+    try {
+      var p = decodeJwt(resp.credential);
+      var u = {
+        sub: p.sub, name: p.name || '', email: p.email || '', picture: p.picture || '',
+        until: Date.now() + SESSION_DAYS * 86400000
+      };
+      save(u);
+      showUser(u);
+    } catch (e) {
+      var er = document.getElementById('rkWallErr');
+      er.style.display = 'block';
+      er.textContent = 'Connexion impossible, réessaie.';
+    }
+  }
+    document.getElementById('rkLogout').addEventListener('click', function () {
+    try { localStorage.removeItem(USER_KEY); } catch (e) {}
+    try { google.accounts.id.disableAutoSelect(); } catch (e) {}
+    currentUser = null;
+    lock();
+  });
+
+  var taps = 0, tapTimer = null;
+  document.getElementById('rkWallIcon').addEventListener('click', function () {
+    taps++;
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(function () { taps = 0; }, 2000);
+    if (taps >= 5) { taps = 0; document.getElementById('adminLoginOverlay').classList.add('open'); }
+  });
+  var _origAdminLogin = window.submitAdminLogin;
+  window.submitAdminLogin = function (e) {
+    _origAdminLogin(e);
+    if (isAdminUnlocked) unlock();
+  };
+
+  function initGoogle() {
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: onGoogle,
+      auto_select: false
+    });
+    google.accounts.id.renderButton(document.getElementById('rkGoogleBtn'), {
+      theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', locale: 'fr', width: 280
+    });
+  }
+    var saved = loadSaved();
+  if (saved) {
+    showUser(saved);
+  } else if (configured) {
+    lock();
+  } else {
+    console.warn('Connexion Google : Client ID non configuré, le mur est désactivé.');
+  }
+
+  if (configured) {
+    var s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true; s.defer = true;
+    s.onload = initGoogle;
+    document.head.appendChild(s);
+  }
+
+  function guard(name) {
+    var orig = window[name];
+    if (typeof orig !== 'function') return;
+    window[name] = function () {
+      if (configured && !currentUser && !isAdminUnlocked) { lock(); return; }
+      return orig.apply(this, arguments);
+    };
+  }
+  ['handleLikeClick', 'handleCommentLike', 'stickToLike', 'submitCandidatureProject'].forEach(guard);
+})();
+</script>
+<script>
+(function () {
+  var rk = window._rk;
+
+  window.submitCommentOrReply = async function (event, postId, parentCommentId) {
+    event.preventDefault();
+    parentCommentId = parentCommentId || null;
+    if (rk.isConfigured() && !rk.getUser()) { rk.lock(); return; }
+    var input = $(parentCommentId ? '#reply-input-' + parentCommentId : '#comment-input-' + postId);
+    if (!input || !input.value.trim()) return;
+    var u = rk.getUser() || { sub: '', name: 'Visiteur', email: '', picture: '' };
+    var entry = {
+      id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      author: u.name || rk.initialsOf(u.name, u.email),
+      avatar: u.picture || rk.initialsAvatar(u.name, u.email),
+      uid: u.sub,
+      text: input.value.trim(),
+      createdAt: new Date().toISOString(),
+      parentId: parentCommentId, masked: false, likes: 0
+    };
+    input.value = '';
+    (_INT.comments[postId] = _INT.comments[postId] || []).push(entry);
+    renderCommentsList(postId);
+    try {
+      await _sb('post_comments', 'POST', { id: entry.id, post_id: postId, data: entry });
+      showToast('✅ Commentaire enregistré');
+    } catch (e) {
+      _INT.comments[postId] = _INT.comments[postId].filter(function (c) { return c.id !== entry.id; });
+      renderCommentsList(postId);
+      showToast('❌ Commentaire non enregistré : ' + e.message);
+    }
+  };
+
+  var _rcl = window.renderCommentsList;
+  window.renderCommentsList = function (postId) {
+    _rcl(postId);
+    document.querySelectorAll('#comments-list-' + postId + ' .comment-avatar').forEach(function (img) {
+      img.referrerPolicy = 'no-referrer';
+      img.onerror = function () {
+        img.onerror = null;
+        var nm = img.parentNode.querySelector('.comment-author-name');
+        img.src = rk.initialsAvatar(nm ? nm.textContent : '', '');
+      };
+    });
+  };
 })();
 </script>
 </body>
