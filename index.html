@@ -2748,6 +2748,43 @@ applyHeaderBranding = function () {
     }
   } catch (e) {}
 };
+const _ahb2 = applyHeaderBranding;
+applyHeaderBranding = function () {
+  var m = document.getElementById('brandMarkContainer');
+  var oldImg = m && m.querySelector('img');
+  _ahb2();
+  var newImg = m && m.querySelector('img');
+  if (oldImg && newImg && oldImg !== newImg &&
+      oldImg.getAttribute('src') === newImg.getAttribute('src')) {
+    newImg.replaceWith(oldImg);
+  }
+};
+
+setInterval(async function () {
+  if (document.hidden) return;
+  try {
+    var r = await fetchLatestRemote();
+    if (!r || !supabaseCache) return;
+    var logoChanged = r.rock_brand_logo !== supabaseCache.rock_brand_logo;
+    var textChanged = r.rock_brand_name !== supabaseCache.rock_brand_name ||
+                      r.rock_brand_tag !== supabaseCache.rock_brand_tag;
+    if (!logoChanged && !textChanged) return;
+    var apply = function () {
+      supabaseCache.rock_brand_logo = r.rock_brand_logo;
+      supabaseCache.rock_brand_name = r.rock_brand_name;
+      supabaseCache.rock_brand_tag = r.rock_brand_tag;
+      applyHeaderBranding();
+    };
+    if (logoChanged && r.rock_brand_logo) {
+      var im = new Image();
+      im.onload = apply;
+      im.onerror = apply;
+      im.src = r.rock_brand_logo;
+    } else {
+      apply();
+    }
+  } catch (e) {}
+}, 60000);
 const _saveOriginal = saveSupabaseData;
 saveSupabaseData = async function (d) {
   const ok = await _saveOriginal(d);
