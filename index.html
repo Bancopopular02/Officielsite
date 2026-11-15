@@ -558,6 +558,19 @@ html.rk-locked, html.rk-locked body { overflow: hidden !important; height: 100%;
 .rk-user-chip img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
 .rk-user-chip button { background: none; border: 0; color: #dc2626; font-size: 11px; font-weight: 700; cursor: pointer; padding: 0 0 0 4px; }
 </style>
+<style>
+.rkv{position:relative;display:flex;align-items:center;justify-content:center;max-width:92vw;background:#000;border-radius:8px;overflow:hidden;user-select:none;-webkit-user-select:none}
+.fb-lightbox-content .rkv video{pointer-events:auto;max-width:92vw;max-height:72vh;display:block;border-radius:0;box-shadow:none;cursor:pointer}
+.rkv-center{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.rkv-bigbtn{width:68px;height:68px;border-radius:50%;background:rgba(0,0,0,.6);border:1.5px solid rgba(255,255,255,.4);color:#fff;font-size:30px;display:grid;place-items:center;opacity:0;transition:opacity .2s}
+.rkv.show-ui .rkv-bigbtn,.rkv.ended .rkv-bigbtn{opacity:1}
+.rkv-bar{position:absolute;left:0;right:0;bottom:0;padding:26px 12px 8px;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;opacity:0;transition:opacity .2s;pointer-events:none}
+.rkv.show-ui .rkv-bar,.rkv.ended .rkv-bar{opacity:1;pointer-events:auto}
+.rkv-seek{width:100%;margin:0 0 6px;accent-color:#075bff;height:18px}
+.rkv-row{display:flex;align-items:center;gap:6px}
+.rkv-row button{background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;min-width:38px;height:34px;font-size:13px;font-weight:700;cursor:pointer;padding:0 8px}
+.rkv-time{flex:1;font-size:12px;font-weight:700;text-align:center}
+</style>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 </head>
