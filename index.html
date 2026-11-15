@@ -2898,5 +2898,73 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 </script>
+<style>
+.goog-te-banner-frame, iframe.skiptranslate { display:none !important; }
+body { top:0 !important; }
+#google_translate_element { display:none; }
+.goog-te-spinner-pos, .goog-te-spinner-animation, .goog-te-spinner { display:none !important; }
+#goog-gt-tt, .goog-tooltip, .goog-text-highlight { display:none !important; box-shadow:none !important; background:none !important; }
+.skiptranslate { display:none !important; }
+[class*="VIpgJd-ZVi9od"], .goog-te-gadget, .goog-te-spinner-pos { display:none !important; visibility:hidden !important; opacity:0 !important; width:0 !important; height:0 !important; }
+img[src*="gstatic.com/images/branding"], img[src*="translate.google"] { display:none !important; }
+</style>
+<div id="google_translate_element"></div>
+<script>
+(function () {
+  var l = (navigator.language || 'fr').toLowerCase();
+  var map = { 'zh': 'zh-CN', 'he': 'iw' };
+  var code = l.indexOf('zh-tw') === 0 || l.indexOf('zh-hk') === 0 ? 'zh-TW'
+           : (map[l.split('-')[0]] || l.split('-')[0]);
+  if (code === 'fr') return;
+  document.cookie = 'googtrans=/fr/' + code + ';path=/';
+  window.googleTranslateElementInit = function () {
+    new google.translate.TranslateElement(
+      { pageLanguage: 'fr', autoDisplay: false },
+      'google_translate_element'
+    );
+  };
+  var s = document.createElement('script');
+  s.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+  document.body.appendChild(s);
+})();
+</script>
+<script>
+(function () {
+  var L = navigator.language || 'fr';
+  var rtf = null;
+  try { rtf = new Intl.RelativeTimeFormat(L, { numeric: 'auto', style: 'long' }); } catch (e) {}
+
+  window.formatLiveClockWithAgo = function (ds) {
+    if (!ds) return '';
+    var past = new Date(ds);
+    if (isNaN(past.getTime())) return '';
+    var now = new Date();
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    var clock = p(now.getHours()) + ':' + p(now.getMinutes()) + ':' + p(now.getSeconds());
+    var d = Math.floor((now - past) / 1000);
+    var ago;
+    if (rtf) {
+      if (d < 60) ago = rtf.format(0, 'second');
+      else if (d < 3600) ago = rtf.format(-Math.floor(d / 60), 'minute');
+      else if (d < 86400) ago = rtf.format(-Math.floor(d / 3600), 'hour');
+      else ago = rtf.format(-Math.floor(d / 86400), 'day');
+    } else {
+      ago = Math.floor(d / 60) + ' min';
+    }
+    return clock + ' (' + ago + ')';
+  };
+
+  function tick() {
+    document.querySelectorAll('.live-clock-time').forEach(function (el) {
+      el.setAttribute('translate', 'no');
+      el.classList.add('notranslate');
+      var t = el.getAttribute('data-time');
+      if (t) el.textContent = window.formatLiveClockWithAgo(t);
+    });
+  }
+  setInterval(tick, 1000);
+  tick();
+})();
+</script>
 </body>
 </html>
