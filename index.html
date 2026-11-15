@@ -2594,20 +2594,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 </script>
 <script>
-const _oldToast = showToast;
-showToast = function(m) {
-  _oldToast(m);
-  let l = document.getElementById('dbglog');
-  if (!l) {
-    l = document.createElement('div');
-    l.id = 'dbglog';
-    l.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#111;color:#ff0;font:12px monospace;padding:6px;max-height:30vh;overflow:auto;white-space:pre-wrap';
-    document.body.appendChild(l);
-  }
-  l.textContent += m + '\n';
-};
-</script>
-<script>
 fileToDataUrl = function(file) { return uploadMedia(file); };
 </script>
 <script>
