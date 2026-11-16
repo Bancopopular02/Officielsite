@@ -2826,7 +2826,7 @@ getFreshBase = async function () {
   if (o) o.remove();
   window._rmBoot = function () {};
   const feed = document.getElementById('dynamicFeedContainer');
-  if (feed && !feed.children.length) {
+  if (feed && !feed.children.length && !supabaseCache) {
     feed.innerHTML = '<style>@keyframes shim{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}.skl{height:260px;border-radius:18px;background:#e9eef9;margin-bottom:16px;animation:shim 1.2s infinite}</style><div class="skl"></div><div class="skl"></div>';
   }
 })();
@@ -3307,6 +3307,179 @@ img[src*="gstatic.com/images/branding"], img[src*="translate.google"] { display:
       };
     });
   };
+})();
+</script>
+<style>
+.post-new{animation:postIn .45s ease}
+@keyframes postIn{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
+</style>
+<script>
+(function () {
+  var INT_KEY = 'rock_int_cache_v1';
+  var EMOJIS = ['😀','❤️','🔥','👏','🎉','👍','🙏','✨'];
+  var fallbackDates = {};
+  var firstPaintDone = false;
+  var busy = false, retries = 0;
+
+  try {
+    var ic = JSON.parse(localStorage.getItem(INT_KEY) || 'null');
+    if (ic) { _INT.comments = ic.comments || {}; _INT.likes = ic.likes || {}; _INT.mine = ic.mine || {}; }
+  } catch (e) {}
+
+  function mediaOf(p) {
+    var list = [];
+    if (Array.isArray(p.media)) {
+      p.media.forEach(function (m) {
+        if (m && m.url) { list.push({ src: m.url, isVideo: m.type === 'video', isYoutube: m.type === 'youtube' }); return; }
+        var src = typeof m === 'object' ? (m.src || m.url) : m;
+        var yt = String(src).indexOf('youtube.com') > -1 || String(src).indexOf('youtu.be') > -1;
+        list.push({ src: src, isVideo: yt || String(src).indexOf('data:video') === 0 || String(src).slice(-4) === '.mp4', isYoutube: yt });
+      });
+    }
+    return list;
+  }
+
+  function postHtml(p, rawDate) {
+    var id = p.id;
+    var mediaList = mediaOf(p);
+    mediaUrlCache[id] = mediaList;
+    var commentsList = getCommentsData()[id] || [];
+    var stickersC = EMOJIS.map(function (e) {
+      return '<div class="sticker-option" onclick="insertStickerToCommentInput(\'' + id + '\', \'' + e + '\')">' + e + '</div>';
+    }).join('');
+    var adminItems = isAdminUnlocked
+      ? '<div class="post-menu-sep"></div>' +
+        '<button type="button" class="post-menu-item" onclick="editPost(\'' + id + '\')">✏️ Modifier</button>' +
+        '<button type="button" class="post-menu-item danger" onclick="deletePost(\'' + id + '\')">🗑️ Supprimer</button>'
+      : '';
+    var mainPicker = 'sticker-picker-main-' + id;
+    return '' +
+    '<article class="post" id="' + id + '">' +
+      '<div class="post-head">' +
+        '<div class="post-author-group">' +
+          '<img class="project-avatar" src="' + escapeHtml(p.avatar) + '" alt="Avatar">' +
+          '<div><div class="post-author">' + escapeHtml(p.author || 'Le fondateur') + ' <span class="verified">✓</span></div>' +
+          '<div class="post-meta live-clock-time" data-time="' + rawDate + '">' + formatLiveClockWithAgo(rawDate) + '</div></div>' +
+        '</div>' +
+        '<div class="post-menu-wrap">' +
+          '<button type="button" class="post-menu-btn" aria-label="Options" onclick="togglePostMenu(event, \'' + id + '\')">⋮</button>' +
+          '<div class="post-menu-dropdown" id="post-menu-' + id + '">' +
+            '<button type="button" class="post-menu-item" onclick="sharePost(\'' + id + '\')">📤 Partager</button>' +
+            '<button type="button" class="post-menu-item" onclick="copyPostLink(\'' + id + '\')">🔗 Copier le lien</button>' + adminItems +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<p class="post-text">' + escapeHtml(p.text) + '</p>' +
+      renderMediaGrid(mediaList, id) +
+      '<div class="post-actions-bar">' +
+        '<button type="button" class="post-action-btn" id="like-btn-' + id + '" onclick="handleLikeClick(\'' + id + '\')">' +
+          '<span class="like-head"><span class="like-icon" id="like-icon-' + id + '">❤</span> <span>J\'aime</span> (</span><span id="like-count-' + id + '">0</span>)' +
+        '</button>' +
+        '<div style="position:relative; display:inline-flex; flex:1; justify-content:center;">' +
+          '<button type="button" class="post-action-btn" onclick="toggleStickerPicker(\'' + mainPicker + '\', event)">😊 Stickers</button>' +
+          '<div class="sticker-picker-popup" id="' + mainPicker + '" style="left:50%; transform:translateX(-50%);">' + stickerPopupLikeHtml(id) + '</div>' +
+        '</div>' +
+        '<button type="button" class="post-action-btn" onclick="toggleCommentsSection(\'' + id + '\')">' +
+          '<span><span>Commenter</span> (</span><span id="comment-count-' + id + '">' + commentsList.length + '</span>)' +
+        '</button>' +
+      '</div>' +
+      '<div class="post-comments-section" id="comments-sec-' + id + '">' +
+        '<form class="comment-form" onsubmit="submitCommentOrReply(event, \'' + id + '\', null)">' +
+          '<input type="text" class="comment-input" id="comment-input-' + id + '" placeholder="Écrire un commentaire..." required>' +
+          '<button type="button" class="sticker-trigger-btn" onclick="toggleStickerPicker(\'comment-sticker-picker-' + id + '\', event)">😊</button>' +
+          '<div class="sticker-picker-popup" id="comment-sticker-picker-' + id + '">' + stickersC + '</div>' +
+          '<button type="submit" class="comment-submit">Publier</button>' +
+        '</form>' +
+        '<div id="comments-list-' + id + '" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;"></div>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function paint(final) {
+    var container = document.getElementById('dynamicFeedContainer');
+    if (!container) return;
+    var admins = getAdminsList();
+    var posts = (readJSON('rock_custom_posts', []) || []).map(function (p, idx) {
+      var q = Object.assign({}, p);
+      if (!q.createdAt && !q.date) {
+        if (!fallbackDates[q.id]) { var d = new Date(); d.setHours(d.getHours() - (idx + 1) * 4); fallbackDates[q.id] = d.toISOString(); }
+        q.createdAt = fallbackDates[q.id];
+      }
+      if (!q.avatar) { q.avatar = admins[0].avatar; q.author = admins[0].name; }
+      return q;
+    });
+    if (!posts.length && !final) return;
+
+    Array.prototype.slice.call(container.children).forEach(function (ch) {
+      if (!(ch.tagName === 'ARTICLE' && ch.classList.contains('post'))) ch.remove();
+    });
+
+    var existing = {};
+    Array.prototype.forEach.call(container.children, function (a) { existing[a.id] = a; });
+
+    var order = [], keep = new Set(), toFill = [];
+    posts.forEach(function (p) {
+      var rawDate = p.createdAt || p.date;
+      var sig = JSON.stringify([p.author, p.avatar, p.text, p.media, rawDate, isAdminUnlocked]);
+      var el = existing[p.id];
+      if (!el || el.getAttribute('data-sig') !== sig) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = postHtml(p, rawDate).trim();
+        var fresh = tmp.firstElementChild;
+        fresh.setAttribute('data-sig', sig);
+        if (!el && firstPaintDone) fresh.classList.add('post-new');
+        el = fresh;
+        toFill.push(p.id);
+      }
+      keep.add(el);
+      order.push(el);
+    });
+
+    var ref = container.firstElementChild;
+    order.forEach(function (el) {
+      if (el === ref) ref = ref.nextElementSibling;
+      else container.insertBefore(el, ref);
+    });
+    Array.prototype.slice.call(container.children).forEach(function (ch) { if (!keep.has(ch)) ch.remove(); });
+
+    toFill.forEach(function (id) { updateLikeButtonUI(id); renderCommentsList(id); });
+  }
+
+  function applyAll() {
+    applyMenuTexts(); applyHeaderBranding(); applyHeroSliderData(); applyContactFooterData(); applyPagesContent();
+  }
+
+  async function refreshBg() {
+    if (busy) return;
+    busy = true;
+    try {
+      var pInt = _loadInt().then(function () { return true; }, function () { return false; });
+      var r = await fetchLatestRemote();
+      if (r) {
+        supabaseCache = r; isSupabaseLoaded = true;
+        try { localStorage.setItem('rock_site_cache_v1', JSON.stringify(r)); } catch (e) {}
+        applyAll();
+        paint(true);
+      } else if (!document.querySelector('#dynamicFeedContainer article.post') && retries < 4) {
+        retries++; setTimeout(refreshBg, 3000);
+      }
+      if (await pInt) {
+        try { localStorage.setItem(INT_KEY, JSON.stringify({ comments: _INT.comments, likes: _INT.likes, mine: _INT.mine })); } catch (e) {}
+        _refreshInt();
+      }
+    } finally { busy = false; }
+  }
+
+  window.renderPublicPosts = async function () {
+    applyAll();
+    paint(isSupabaseLoaded);
+    firstPaintDone = true;
+    refreshBg();
+  };
+
+  window.renderPublicPosts();
+
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshBg(); });
 })();
 </script>
 </body>
