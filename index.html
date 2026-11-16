@@ -3482,5 +3482,17 @@ img[src*="gstatic.com/images/branding"], img[src*="translate.google"] { display:
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshBg(); });
 })();
 </script>
+<script>
+(function () {
+  var _h = applyHeaderBranding;
+  applyHeaderBranding = function () {
+    var m = document.getElementById('brandMarkContainer');
+    var hasImg = m && m.querySelector('img');
+    var noLogoYet = !supabaseCache || supabaseCache.rock_brand_logo === undefined;
+    if (hasImg && noLogoYet) return;
+    _h();
+  };
+})();
+</script>
 </body>
 </html>
