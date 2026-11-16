@@ -3482,15 +3482,63 @@ img[src*="gstatic.com/images/branding"], img[src*="translate.google"] { display:
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshBg(); });
 })();
 </script>
+<style>
+#brandMarkContainer svg{display:none!important}
+</style>
 <script>
 (function () {
-  var _h = applyHeaderBranding;
+  var K_DATA = 'rock_logo_locked';
+  var K_URL = 'rock_logo_locked_url';
+  var box = document.getElementById('brandMarkContainer');
+
+  function show(src) {
+    if (!box || !src) return;
+    var cur = box.querySelector('img');
+    if (cur && cur.getAttribute('src') === src) return;
+    var im = new Image();
+    im.alt = 'Logo';
+    im.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
+    im.onload = function () { box.innerHTML = ''; box.appendChild(im); };
+    im.src = src;
+  }
+
+  function lockLogo(url) {
+    fetch(url).then(function (r) { return r.blob(); }).then(function (b) {
+      var f = new FileReader();
+      f.onload = function () {
+        try {
+          localStorage.setItem(K_DATA, f.result);
+          localStorage.setItem(K_URL, url);
+        } catch (e) {}
+        show(f.result);
+      };
+      f.readAsDataURL(b);
+    }).catch(function () { show(url); });
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem(K_DATA); } catch (e) {}
+  if (saved) show(saved);
+
   applyHeaderBranding = function () {
-    var m = document.getElementById('brandMarkContainer');
-    var hasImg = m && m.querySelector('img');
-    var noLogoYet = !supabaseCache || supabaseCache.rock_brand_logo === undefined;
-    if (hasImg && noLogoYet) return;
-    _h();
+    var name = readJSON('rock_brand_name', 'The Rock <span>Solidarity Foundation</span>');
+    var tag = readJSON('rock_brand_tag', 'Initiative indépendante · Non affiliée à Dwayne Douglas Johnson');
+    var n = document.getElementById('brandNameContainer');
+    var t = document.getElementById('brandTagContainer');
+    if (n) n.innerHTML = name;
+    if (t) t.textContent = tag;
+
+    var logo = readJSON('rock_brand_logo', '');
+    if (!logo) return;
+    var lastUrl = null;
+    try { lastUrl = localStorage.getItem(K_URL); } catch (e) {}
+    if (logo === lastUrl && saved) return;
+    if (String(logo).indexOf('data:') === 0) {
+      try { localStorage.setItem(K_DATA, logo); localStorage.setItem(K_URL, logo); } catch (e) {}
+      show(logo);
+    } else {
+      lockLogo(logo);
+    }
   };
 })();
 </script>
